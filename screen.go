@@ -29,12 +29,14 @@ var rnd = rand.New(rand.NewSource(time.Now().UnixNano()))
 
 func makeScreen() Screen {
 	sc := Screen{}
-	for i := 0; i < FSize; i++ {
-		for j := 0; j < FSize; j++ {
-			sc.ownField[i][j] = Void
-			sc.enemyField[i][j] = Void
-		}
-	}
+	sc.ownField = makeField()
+	sc.enemyField = makeField()
+	//for i := 0; i < FSize; i++ {
+	//	for j := 0; j < FSize; j++ {
+	//		sc.ownField[i][j] = Void
+	//		sc.enemyField[i][j] = Void
+	//	}
+	//}
 	alive := 0
 	for _, item := range SHIPS {
 		alive += item.size * item.count
@@ -45,20 +47,30 @@ func makeScreen() Screen {
 	return sc
 }
 
+func makeField() Field {
+	field := Field{}
+	for i := 0; i < FSize; i++ {
+		for j := 0; j < FSize; j++ {
+			field[i][j] = Void
+		}
+	}
+	return field
+}
+
 func (sc *Screen) setShips() {
 	ownField := &sc.ownField
-	//helperField := &Field{}
-	helperField := &sc.enemyField
+	helperField := makeField()
+	//helperField := &sc.enemyField
 	flagCreate := false
 	for _, ship := range SHIPS {
 		for i := 0; i < ship.count; i++ {
 			flagCreate = false
 			for flagCreate == false {
-				flagCreate = generateShip(ship.size, ownField, helperField)
+				flagCreate = generateShip(ship.size, ownField, &helperField)
 				//fmt.Println(helperField)
 			}
 			//(*sc).enemyField = *helperField
-			(*MainScreen).showScreen()
+			//(*MainScreen).showScreen()
 		}
 	}
 }
@@ -66,33 +78,22 @@ func (sc *Screen) setShips() {
 func generateShip(size int, field *Field, helper *Field) bool {
 	x := rnd.Intn(FSize)
 	y := rnd.Intn(FSize)
+
+	if !(checkCoord(x, y, helper)) {
+		return false
+	}
+
 	dirNum := rnd.Intn(4)
-	//direct := DIRECTIONS[dirNum]
 	gipoTiles := make([][2]int, 0, size)
 	var flag bool
 	for d := 0; d < 4; d++ {
 		direct := DIRECTIONS[(d+dirNum)%4]
 		flag = true
 
-		for j := 0; j < size; j++ {
-			newX := x + direct.x*j
-			newY := y + direct.y*j
+		gipoTiles, flag = checkCap(x, y, size, direct, helper)
 
-			if newX >= FSize || newX < 0 || newY >= FSize || newY < 0 {
-				flag = false
-				break
-			}
-			if (*helper)[newY][newX] != Void {
-				flag = false
-				break
-			}
-
-			gipoTiles = append(gipoTiles, [2]int{newX, newY})
-		}
 		if flag {
 			break
-		} else {
-			gipoTiles = gipoTiles[:0]
 		}
 	}
 
@@ -105,6 +106,32 @@ func generateShip(size int, field *Field, helper *Field) bool {
 		makeSaveZone(helper, gipoTiles)
 	}
 	return flag
+}
+
+func checkCap(x int, y int, size int, direct dir, helper *Field) (gipoTiles [][2]int, flag bool) {
+	for j := 0; j < size; j++ {
+		newX := x + direct.x*j
+		newY := y + direct.y*j
+
+		if !(checkCoord(newX, newY, helper)) {
+			gipoTiles = gipoTiles[:0]
+			flag = false
+			return
+		}
+		gipoTiles = append(gipoTiles, [2]int{newX, newY})
+	}
+	flag = true
+	return
+}
+
+func checkCoord(x int, y int, field *Field) bool {
+	if x >= FSize || x < 0 || y >= FSize || y < 0 {
+		return false
+	}
+	if (*field)[y][x] != Void {
+		return false
+	}
+	return true
 }
 
 var oMatrix = [8][2]int{

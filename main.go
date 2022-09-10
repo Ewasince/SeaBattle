@@ -27,31 +27,69 @@ var SHIPS = [...]sizeCnt{
 }
 
 type dir struct {
-	x    int
-	y    int
-	name string
+	x     int
+	y     int
+	label string
 }
 
 var DIRECTIONS = [...]dir{
-	dir{1, 0, "right"}, // right
-	dir{0, 1, "down"},  // down
-	dir{-1, 0, "left"}, // left
-	dir{0, -1, "up"},   // up
+	dir{1, 0, "r"},  // right
+	dir{0, 1, "d"},  // down
+	dir{-1, 0, "l"}, // left
+	dir{0, -1, "г"}, // up
 }
 
 var MainScreen *Screen
 
 func main() {
-	defer fmt.Println("Goodbye!")
+	defer defrFunc()
 
-	mainScreen := makeScreen()
-	fmt.Println(mainScreen)
+	userScreen := makeScreen()
 
 	botScreen := makeScreen()
-	fmt.Println(botScreen)
 	MainScreen = &botScreen
 	botScreen.setShips()
-	botScreen.showScreen()
-	fmt.Println("")
 
+	userScreen.showScreen()
+	//fmt.Println("")
+	var (
+		x         int
+		y         int
+		d         string
+		direction dir
+		dirFlag   bool
+	)
+	fmt.Println("Please set your ships!")
+	for _, ship := range SHIPS {
+		for i := ship.count; i > 0; i-- {
+			fmt.Printf("Remain %v %v-deck ships\n", i, ship.size)
+			var tiles [][2]int
+			var res bool
+			for {
+				dirFlag = false
+				fmt.Print("Type ccordinates and direction litteral \"{x} {y} {d}\": ")
+				fmt.Scanf("%d %d %s", &x, &y, &d)
+				for _, dir_ := range DIRECTIONS {
+					if dir_.label == d {
+						direction = dir_
+						dirFlag = true
+						break
+					}
+				}
+				if dirFlag {
+					break
+				}
+				tiles, res = checkCap(x, y, ship.size, direction, &userScreen.ownField) // TODO: доедлать ввод координат
+				if res == true {
+					break
+				}
+			}
+		}
+	}
+}
+
+func defrFunc() {
+	fmt.Print("Push return to quit the program")
+	test, _ := fmt.Scanln()
+	fmt.Println(test)
 }
