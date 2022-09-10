@@ -7,10 +7,11 @@ import (
 type tile string
 
 const (
-	Void  tile = " "
-	Ship  tile = "#"
-	Havoc tile = "X"
-	FSize int  = 10
+	Void   tile = "."
+	Ship   tile = "#"
+	Havoc  tile = "X"
+	FSize  int  = 10
+	Helper tile = "*"
 )
 
 type sizeCnt struct {
@@ -38,12 +39,19 @@ var DIRECTIONS = [...]dir{
 	dir{0, -1, "up"},   // up
 }
 
+var MainScreen *Screen
+
 func main() {
 	defer fmt.Println("Goodbye!")
 
 	mainScreen := makeScreen()
-	botScreen := makeScreen()
 	fmt.Println(mainScreen)
+
+	botScreen := makeScreen()
 	fmt.Println(botScreen)
+	MainScreen = &botScreen
+	botScreen.setShips()
+	botScreen.showScreen()
+	fmt.Println("")
 
 }
