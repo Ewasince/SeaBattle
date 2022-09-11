@@ -2,15 +2,9 @@ package main
 
 import (
 	"fmt"
-	"math/rand"
 	"strconv"
-	"time"
 )
 
-//	type Field struct {
-//		field [10][10]tile
-//		alive int
-//	}
 const (
 	weightSc int = 2
 	heightSc int = 1
@@ -21,22 +15,18 @@ type Field [FSize][FSize]tile
 type Screen struct {
 	ownField   Field
 	enemyField Field
+	helper     Field
 	ownAlive   int
 	enemyAlive int
 }
 
-var rnd = rand.New(rand.NewSource(time.Now().UnixNano()))
+type Ship [][2]int
 
 func makeScreen() Screen {
 	sc := Screen{}
 	sc.ownField = makeField()
 	sc.enemyField = makeField()
-	//for i := 0; i < FSize; i++ {
-	//	for j := 0; j < FSize; j++ {
-	//		sc.ownField[i][j] = Void
-	//		sc.enemyField[i][j] = Void
-	//	}
-	//}
+	sc.helper = makeField()
 	alive := 0
 	for _, item := range SHIPS {
 		alive += item.size * item.count
@@ -51,22 +41,42 @@ func makeField() Field {
 	field := Field{}
 	for i := 0; i < FSize; i++ {
 		for j := 0; j < FSize; j++ {
-			field[i][j] = Void
+			field[i][j] = VoidTile
 		}
 	}
 	return field
 }
 
-func (sc *Screen) setShips() {
-	ownField := &sc.ownField
-	helperField := makeField()
-	//helperField := &sc.enemyField
+func (sc *Screen) setShip(tiles Ship) {
+	var x int
+	var y int
+	for _, tile_ := range tiles {
+		x = tile_[0]
+		y = tile_[1]
+		(*sc).ownField[y][x] = ShipTile
+		(*sc).helper[y][x] = ShipTile
+	}
+	(*sc).makeSaveZone(tiles)
+}
+
+func (sc *Screen) shoot(x int, y int) bool {
+	if (*sc).ownField[y][x] == ShipTile {
+		(*sc).ownField[y][x] = HavocTile
+		(*sc).ownAlive -= 1
+		return true
+	} else {
+		(*sc).ownField[y][x] = MissTile
+		return false
+	}
+}
+
+func (sc *Screen) generateShips() {
 	flagCreate := false
 	for _, ship := range SHIPS {
 		for i := 0; i < ship.count; i++ {
 			flagCreate = false
 			for flagCreate == false {
-				flagCreate = generateShip(ship.size, ownField, &helperField)
+				flagCreate = (*sc).generateShip(ship.size)
 				//fmt.Println(helperField)
 			}
 			//(*sc).enemyField = *helperField
@@ -75,16 +85,17 @@ func (sc *Screen) setShips() {
 	}
 }
 
-func generateShip(size int, field *Field, helper *Field) bool {
+func (sc *Screen) generateShip(size int) bool {
 	x := rnd.Intn(FSize)
 	y := rnd.Intn(FSize)
+	helper := &(*sc).helper
 
 	if !(checkCoord(x, y, helper)) {
 		return false
 	}
 
 	dirNum := rnd.Intn(4)
-	gipoTiles := make([][2]int, 0, size)
+	gipoTiles := make(Ship, 0, size)
 	var flag bool
 	for d := 0; d < 4; d++ {
 		direct := DIRECTIONS[(d+dirNum)%4]
@@ -98,17 +109,12 @@ func generateShip(size int, field *Field, helper *Field) bool {
 	}
 
 	if flag {
-		for _, tile_ := range gipoTiles {
-			(*field)[tile_[1]][tile_[0]] = Ship
-			(*helper)[tile_[1]][tile_[0]] = Ship
-		}
-		//(*MainScreen).showScreen()
-		makeSaveZone(helper, gipoTiles)
+		(*sc).setShip(gipoTiles)
 	}
 	return flag
 }
 
-func checkCap(x int, y int, size int, direct dir, helper *Field) (gipoTiles [][2]int, flag bool) {
+func checkCap(x int, y int, size int, direct dir, helper *Field) (gipoTiles Ship, flag bool) {
 	for j := 0; j < size; j++ {
 		newX := x + direct.x*j
 		newY := y + direct.y*j
@@ -128,7 +134,7 @@ func checkCoord(x int, y int, field *Field) bool {
 	if x >= FSize || x < 0 || y >= FSize || y < 0 {
 		return false
 	}
-	if (*field)[y][x] != Void {
+	if (*field)[y][x] != VoidTile {
 		return false
 	}
 	return true
@@ -140,7 +146,7 @@ var oMatrix = [8][2]int{
 	{0, 1}, {-1, 1}, {-1, 0},
 }
 
-func makeSaveZone(field *Field, tiles [][2]int) {
+func (sc *Screen) makeSaveZone(tiles Ship) {
 	for _, tilePr := range tiles {
 		for _, coeff := range oMatrix {
 			x := tilePr[0] + coeff[0]
@@ -148,9 +154,9 @@ func makeSaveZone(field *Field, tiles [][2]int) {
 			if x >= FSize || x < 0 || y >= FSize || y < 0 {
 				continue
 			}
-			tileLi := &((*field)[y][x])
-			if *tileLi == Void {
-				*tileLi = Helper
+			tileLi := &((*sc).helper[y][x])
+			if *tileLi == VoidTile {
+				*tileLi = MissTile
 			}
 			//(*MainScreen).showScreen()
 		}
@@ -158,7 +164,7 @@ func makeSaveZone(field *Field, tiles [][2]int) {
 	}
 }
 
-func (sc Screen) showScreen() {
+func (sc *Screen) showScreen() {
 	for k := 0; k < 2; k++ {
 		for j := 0; j < weightSc; j++ {
 			fmt.Print(" ")

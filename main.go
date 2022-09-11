@@ -2,16 +2,18 @@ package main
 
 import (
 	"fmt"
+	"math/rand"
+	"time"
 )
 
 type tile string
 
 const (
-	Void   tile = "."
-	Ship   tile = "#"
-	Havoc  tile = "X"
-	FSize  int  = 10
-	Helper tile = "*"
+	VoidTile  tile = "."
+	ShipTile  tile = "#"
+	HavocTile tile = "X"
+	FSize     int  = 10
+	MissTile  tile = "*"
 )
 
 type sizeCnt struct {
@@ -20,10 +22,10 @@ type sizeCnt struct {
 }
 
 var SHIPS = [...]sizeCnt{
-	sizeCnt{1, 4},
-	sizeCnt{2, 3},
-	sizeCnt{3, 2},
-	sizeCnt{4, 1},
+	{1, 4},
+	{2, 3},
+	{3, 2},
+	{4, 1},
 }
 
 type dir struct {
@@ -33,62 +35,99 @@ type dir struct {
 }
 
 var DIRECTIONS = [...]dir{
-	dir{1, 0, "r"},  // right
-	dir{0, 1, "d"},  // down
-	dir{-1, 0, "l"}, // left
-	dir{0, -1, "г"}, // up
+	{1, 0, "r"},  // right
+	{0, 1, "d"},  // down
+	{-1, 0, "l"}, // left
+	{0, -1, "u"}, // up
 }
 
-var MainScreen *Screen
+var rnd = rand.New(rand.NewSource(time.Now().UnixNano()))
+
+//var UserScreen *Screen
 
 func main() {
-	defer defrFunc()
+	defer deferFunc()
 
-	userScreen := makeScreen()
+	userScreen := makeUserScreen()
 
-	botScreen := makeScreen()
-	MainScreen = &botScreen
-	botScreen.setShips()
+	botScreen := makeBotScreen()
+	botScreen.generateShips()
 
 	userScreen.showScreen()
-	//fmt.Println("")
 	var (
-		x         int
-		y         int
-		d         string
-		direction dir
-		dirFlag   bool
+		x int
+		y int
 	)
 	fmt.Println("Please set your ships!")
-	for _, ship := range SHIPS {
-		for i := ship.count; i > 0; i-- {
-			fmt.Printf("Remain %v %v-deck ships\n", i, ship.size)
-			var tiles [][2]int
-			var res bool
-			for {
-				dirFlag = false
-				fmt.Print("Type ccordinates and direction litteral \"{x} {y} {d}\": ")
-				fmt.Scanf("%d %d %s", &x, &y, &d)
-				for _, dir_ := range DIRECTIONS {
-					if dir_.label == d {
-						direction = dir_
-						dirFlag = true
-						break
-					}
-				}
-				if dirFlag {
-					break
-				}
-				tiles, res = checkCap(x, y, ship.size, direction, &userScreen.ownField) // TODO: доедлать ввод координат
-				if res == true {
-					break
-				}
-			}
+	//setting user ships cycle
+	for {
+		fmt.Println("Would you like auto set ships? (\"y\" or \"n\"): ")
+		ans := ""
+		n, err := fmt.Scanln(&ans)
+		if n != 1 || err != nil {
+			fmt.Printf("Error in input: %v\n", err)
 		}
+		switch ans {
+		case "y":
+			userScreen.generateShips()
+			userScreen.showScreen()
+		case "n":
+			userScreen.setUserShips()
+		}
+		break
+	}
+
+	//game cycle
+	for {
+		if userScreen.ownAlive <= 0 {
+			fmt.Println("You lose!")
+			break
+		} else if userScreen.enemyAlive <= 0 {
+			fmt.Println("You win!")
+			break
+		}
+		// player shoot cycle
+		for {
+			fmt.Println("Choose coordinates to shoot \"{x} {y}\": ")
+			n, err := fmt.Scanln(&x, &y)
+			if n != 2 || err != nil {
+				fmt.Printf("Error in input: %v\n", err)
+				continue
+			}
+
+			res := botScreen.shoot(x, y)
+			if res {
+				userScreen.enemyField[y][x] = HavocTile
+				userScreen.enemyAlive -= 1
+				fmt.Println("You hit!")
+				userScreen.showScreen()
+				continue
+			} else {
+				userScreen.enemyField[y][x] = MissTile
+				fmt.Println("You miss!")
+			}
+			break
+		}
+		userScreen.showScreen()
+		// bot shoot cycle
+		for {
+			x, y = botScreen.nextShoot()
+
+			res := userScreen.shoot(x, y)
+			if res {
+				botScreen.enemyField[y][x] = HavocTile
+				botScreen.enemyAlive -= 1
+				continue
+			} else {
+				botScreen.enemyField[y][x] = MissTile
+			}
+			break
+		}
+
 	}
 }
 
-func defrFunc() {
+func deferFunc() {
 	fmt.Print("Push return to quit the program")
 	test, _ := fmt.Scanln()
 	fmt.Println(test)
